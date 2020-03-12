@@ -49,7 +49,7 @@ static void wait_for_response(const char* response, uint16_t timeout_ms){
 	Task time_out_task = task_make(timeout_ms, (void*)NVIC_SystemReset);
 	task_start(time_out_task);
 	while(!search_rx_buffer(response) && !task_state(time_out_task, NULL));
-	task_destroy(time_out_task);	//Uwaga! nie testowane
+	task_destroy(time_out_task);
 }
 
 void esp_send_data(const char* data){
@@ -95,14 +95,19 @@ static void connect_to_server(){
 
 static void set_esp_status(){
 	send_command("AT+CIPSTATUS");
-	HAL_Delay(200);
 	wait_for_response("OK", 1000);
-	if (search_rx_buffer("STATUS:2") || search_rx_buffer("STATUS:4"))
+	if (search_rx_buffer("STATUS:2") || search_rx_buffer("STATUS:4")){
 		esp_status = AP_Connected;
+		LD1_GPIO_Port->BRR = LD1_Pin;
+	}
 	else if (search_rx_buffer("STATUS:3"))
 		esp_status = Server_Connected;
-	else if (search_rx_buffer("STATUS:5"))
+	else if (search_rx_buffer("STATUS:5")){
 		esp_status = AP_Disconnected;
+		LD1_GPIO_Port->BSRR = LD1_Pin;
+
+	}
+
 }
 
 static void pair_device(){
@@ -150,12 +155,13 @@ void esp_initialize(){
 
 void esp_wps(){
 	LD2_GPIO_Port->BSRR = LD2_Pin;
+	LD1_GPIO_Port->BSRR = LD1_Pin;
 	disable_passthrough();
 	send_command("AT+CWMODE=1");
 	send_command("AT+WPS=1");
 	wait_for_response("connecting", 30000);
 	esp_status = AP_Connected;
-	HAL_Delay(1000);
+	HAL_Delay(1000);	//???
 	esp_initialize();
 }
 
